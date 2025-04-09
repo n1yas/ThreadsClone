@@ -1,6 +1,6 @@
 "use client";
 
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import { ErrorMessage, Field, Form, Formik, FormikHelpers } from "formik";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import * as Yup from "yup";
 import { useToast } from "@/app/hooks/useToast";
 import { ImSpinner3 } from "react-icons/im";
 import { useEffect } from "react";
+import apiClient from "@/api/axiosInstance";
 
 export default function SignUp() {
   interface FormValues {
@@ -39,8 +40,8 @@ export default function SignUp() {
     console.log(values);
 
     try {
-      const response = await axios.post(
-        "api/external/users/signup",
+      const response = await apiClient.post(
+        "/users/signup",
         values
       );
 

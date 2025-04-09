@@ -2,7 +2,6 @@
 
 import { loginSuccess } from "@/redux/slices/AuthSlice";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -16,10 +15,10 @@ import Modal from "react-modal";
 import { usePathname, useRouter } from "next/navigation";
 import UploadpostModal from "./Uploadpost";
 import ThemeSwitcher from "./Theme";
+import apiClient from "@/api/axiosInstance";
 
 const fetchUser = async (userid: string | number) => {
-  const res = await axios.get(`api/external/users/${userid}`);
-  console.log(res.data);
+  const res = await apiClient.get(`/users/${userid}`);
 
   return res.data.user;
 };
@@ -32,9 +31,6 @@ const Sidebar = () => {
 
   const pathname = usePathname();
 
-  if (pathname === "/login" || pathname === "/signup") {
-    return null;
-  }
 
   const [plusIsOpen, setPlusIsOpen] = useState(false);
   const [barIsOpen, setBarIsOpen] = useState(false);
@@ -61,6 +57,15 @@ const Sidebar = () => {
     setBarIsOpen(false);
     router.push("/login");
   };
+
+  
+  if (pathname === "/login" || pathname === "/signup") {
+    return null;
+  }
+
+  if(!LoggedUserId){
+    return router.replace("/login")
+  }
 
   return (
     <>
@@ -152,7 +157,7 @@ const Sidebar = () => {
             <GrHomeRounded className="text-2xl" />
           </Link>
         </div>
-        <div  className="py-2 px-4 hover:bg-gray-200  rounded-lg">
+        <div className="py-2 px-4 hover:bg-gray-200  rounded-lg">
           <Link href={"/search"}>
             <FiSearch className="text-2xl" />
           </Link>
@@ -166,18 +171,17 @@ const Sidebar = () => {
         <div className=" hover:bg-gray-200 px-4 py-2  rounded-lg">
           <FiHeart className="text-2xl" />
         </div>
-        <div  className="py-2 px-4 hover:bg-gray-200  rounded-lg">
+        <div className="py-2 px-4 hover:bg-gray-200  rounded-lg">
           <Link href={"/user"}>
             <IoPersonOutline className="text-2xl" />
           </Link>
         </div>
       </div>
-        <div className="md:hidden absolute top-4 right-4 text-gray-400 hover:text-black ">
-          <button
-           onClick={()=>setBarIsOpen(true)}>
-          <HiBars2 className="text-2xl transition-transform duration-300 hover:scale-110 "/>
-          </button>
-        </div>
+      <div className="md:hidden absolute top-4 right-4 text-gray-400 hover:text-black ">
+        <button onClick={() => setBarIsOpen(true)}>
+          <HiBars2 className="text-2xl transition-transform duration-300 hover:scale-110 " />
+        </button>
+      </div>
     </>
   );
 };

@@ -1,94 +1,127 @@
 import { useSelector } from "react-redux";
 import Modal from "react-modal";
-import { IoPersonAdd } from "react-icons/io5";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-
-
+import { useToast } from "@/app/hooks/useToast";
+import { ImSpinner3 } from "react-icons/im";
+import apiClient from "@/api/axiosInstance";
+import * as Yup from "yup"
 
 export default function EditProfile({ editOpen, setEditOpen }) {
+  const { user } = useSelector((state) => state.auth);
 
   const queryClient = useQueryClient();
   const [profileEdit, setProfileEdit] = useState({
-    name: "",
-    username: "",
-    email: "",
-    bio: "",
-    profilePic: ""
+    name: user?.name || "",
+    username: user?.username || "",
+    email: user?.email || "",
+    bio: user?.bio || "",
+    profilePic: user?.profilePic || "",
   });
 
-  const[profileModal,setProfileModal]=useState(false)
+  useEffect(() => {
+    if (user) {
+      setProfileEdit((prev) => ({
+        ...prev,
+        name: user?.name || "",
+        username: user?.username || "",
+        email: user?.email || "",
+        bio: user?.bio || "",
+        profilePic: typeof user?.profilePic === "string" ? user.profilePic : "",
+      }));
+    }
+  }, [user]);
+
+  const [profileModal, setProfileModal] = useState(false);
 
   const loggedUserId = localStorage.getItem("userId");
+  const { showSuccess, showError } = useToast();
 
   const editMutation = useMutation({
     mutationKey: ["editProfile"],
-    mutationFn: async (formData:FormData) => {
-      const response = await axios.patch(`api/external/users/${loggedUserId}`,formData);
+    mutationFn: async (formData: FormData) => {
+      const response = await apiClient.patch(
+        `/users/${loggedUserId}`,
+        formData
+      );
       return response.data;
     },
     onSuccess: (data) => {
-      console.log(data);
+      setEditOpen(false);
+      showSuccess("Profile Update");
       queryClient.invalidateQueries({ queryKey: ["editProfile"] });
-      setProfileEdit({
-        name: "",
-        username: "",
-        email:"",
-        bio: "",
-        profilePic: "",
-      });
+      setProfileEdit((prev) => ({
+        ...prev,
+        name: user.name || "",
+        username: user.username || "",
+        email: user.email || "",
+        bio: user.bio || "",
+        profilePic: user.profilePic || "",
+      }));
     },
     onError: (error) => {
       console.log(error);
     },
   });
 
-  const [profileImage,setProfileImage]=useState(null)
+  const [profileImage, setProfileImage] = useState(null);
 
-  const handleEdit=()=>{
-    const Edit=new FormData()
-    Edit.append("name",profileEdit?.name)
-    Edit.append("username",profileEdit?.username)
+  const handleEdit = () => {
+    const Edit = new FormData();
+    Edit.append("name", profileEdit?.name);
+    Edit.append("username", profileEdit?.username);
 
-    if(profileEdit.email){
-      Edit.append("email",profileEdit?.email)
+    if (profileEdit.email) {
+      Edit.append("email", profileEdit?.email);
     }
 
-    Edit.append("bio",profileEdit?.bio)
+    Edit.append("bio", profileEdit?.bio);
 
-    if(profileEdit.profilePic){
-      Edit.append("profilePic",profileEdit?.profilePic)
+    if (profileEdit.profilePic) {
+      console.log("first");
+      Edit.append("profilePic", profileEdit?.profilePic);
     }
-    setEditOpen(false)
-    editMutation.mutate(Edit)
-  }
 
-  const handleChange=(e:React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>)=>{
+    editMutation.mutate(Edit);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setProfileEdit({ ...profileEdit, [e.target.name]: e.target.value });
-  }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file=event.target.files?.[0];
-    if(file){
-      setProfileImage((prev)=>({
+    const file = event.target.files?.[0];
+    console.log(file);
+
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setProfileEdit((prev) => ({
         ...prev,
-        profileImage:file
+        profilePic: imageUrl,
       }));
 
-      const imageUrl=URL.createObjectURL(file)
-      setProfileImage(imageUrl)
+      setProfileImage(imageUrl);
     }
-  }
+    setProfileModal(false);
+  };
 
-  const fileInputRef=useRef()
- 
+  const fileInputRef = useRef();
+
   const handleUploadClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
+  const handleRemove = () => {
+    if (!profileImage) {
+      showError("image is empty");
+    }
+    setProfileImage(null);
+    setProfileModal(false);
+  };
 
   return (
     <>
@@ -100,77 +133,99 @@ export default function EditProfile({ editOpen, setEditOpen }) {
       >
         <div className="w-full">
           <div className="flex flex-col w-full p-3">
-              <div className="flex justify-end ">
-                <button onClick={()=>setProfileModal(true)}
-                className=" flex justify-center items-center w-12 h-12 rounded-full bg-gray-200">
-                  <IoPersonAdd className="text-gray-600 text-2xl" />
-                </button>
-                <Modal
+            <div className="flex justify-end ">
+              <button
+                onClick={() => setProfileModal(true)}
+                className="relative flex justify-center items-center w-12 h-12 rounded-full bg-gray-200"
+              >
+                <img
+                  src={profileImage || "defaultImage.jpg"}
+                  alt="profile"
+                  className=" absolute w-12 h-12 rounded-full object-cover"
+                />
+              </button>
+              <Modal
                 isOpen={profileModal}
-                onRequestClose={()=>setProfileModal(false)}
+                onRequestClose={() => setProfileModal(false)}
                 overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
-                className="flex justify-center bg-white rounded-lg shadow-lg w-60 mx-4 md:mx-auto px-4 outline-none"
+                className="flex flex-col justify-center bg-white rounded-lg shadow-lg w-60 mx-4 md:mx-auto p-4 outline-none"
+              >
+                <button
+                  onClick={handleUploadClick}
+                  className="text-base font-semibold text-black  hover:bg-gray-200 rounded-lg p-3"
                 >
-                  <button onClick={handleUploadClick}
-                  className="text-base font-semibold w-56 text-black  hover:bg-gray-200 rounded-lg py-4 m-2"
-                   >
                   <label htmlFor="file-upload" className="cursor-pointer">
-                    Upload image
+                    Upload picture
                   </label>
-                  <input 
-                  id="file-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
                   />
-                  </button>
-                </Modal>
-              </div>
-              <h3 className="text-lg font-medium text-gray-700 mt-2">Name</h3>
-              <input type="text"
-              name="name"
-              value={profileEdit.name}
-              onChange={handleChange} 
-              autoComplete="off"
-              className="w-full p-2 border-b border-gray-300 outline-none"/>
-            <h3 className="text-lg font-medium text-gray-700 mt-2">UserName</h3>
-              <input
-               type="text"
-              name="username"
-              value={profileEdit.username}
-              onChange={handleChange} 
-              autoComplete="off"
-              className="w-full p-2 border-b border-gray-300 outline-none"/>
-
-          <div className="mb-4">
-            <h3 className="text-lg font-medium text-gray-700 mt-2">Bio</h3>
+                </button>
+                <button
+                  className="text-base font-semibold text-red-500  hover:bg-gray-200 rounded-lg p-3"
+                  onClick={() => handleRemove()}
+                >
+                  Remove current picture
+                </button>
+              </Modal>
+            </div>
+            <h3 className="text-lg font-medium text-gray-700 mt-2">Name</h3>
             <input
               type="text"
-              name="bio"
-              value={profileEdit.bio}
+              name="name"
+              value={profileEdit.name}
               onChange={handleChange}
               autoComplete="off"
-              placeholder="+Write bio"
-              className="w-full p-2 border-b border-gray-300 outline-none "
+              className="w-full p-2 border-b border-gray-300 outline-none"
             />
-            <h3 className="text-lg font-medium text-gray-700 mt-2">Email</h3>
+            <h3 className="text-lg font-medium text-gray-700 mt-2">UserName</h3>
             <input
-              type="email"
-              name="email"
-              value={profileEdit.email}
+              type="text"
+              name="username"
+              value={profileEdit.username}
               onChange={handleChange}
-              placeholder="+Add Email"
               autoComplete="off"
-              className="w-full p-2 border-b border-gray-300 outline-none "
+              className="w-full p-2 border-b border-gray-300 outline-none"
             />
-          </div>
+
+            <div className="mb-4">
+              <h3 className="text-lg font-medium text-gray-700 mt-2">Bio</h3>
+              <input
+                type="text"
+                name="bio"
+                value={profileEdit.bio}
+                onChange={handleChange}
+                autoComplete="off"
+                placeholder="+Write bio"
+                className="w-full p-2 border-b border-gray-300 outline-none "
+              />
+              <h3 className="text-lg font-medium text-gray-700 mt-2">Email</h3>
+              <input
+                type="email"
+                name="email"
+                value={profileEdit.email}
+                onChange={handleChange}
+                placeholder="+Add Email"
+                autoComplete="off"
+                className="w-full p-2 border-b border-gray-300 outline-none "
+              />
+            </div>
           </div>
 
-            <button onClick={handleEdit} 
-            className=" text-white flex justify-center items-center bg-black rounded-lg w-full py-4 mb-3" >
-              Done</button>
-          
+          <button
+            onClick={handleEdit}
+            className=" text-white flex justify-center items-center bg-black rounded-lg w-full py-4 mb-3"
+          >
+            {editMutation.isPending ? (
+              <ImSpinner3 className="animate-spin" />
+            ) : (
+              "Done"
+            )}
+          </button>
         </div>
       </Modal>
     </>

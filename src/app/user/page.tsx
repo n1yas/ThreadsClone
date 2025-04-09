@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { useEffect, useState } from "react";
 import { FiInstagram } from "react-icons/fi";
 import { BiBarChartSquare } from "react-icons/bi";
@@ -12,12 +11,16 @@ import Link from "next/link";
 import UploadpostModal from "@/Components/Uploadpost";
 import EditProfile from "@/Components/EditProfile";
 import PostDetails from "@/Components/PostDetails";
+import Repost from "@/Components/Repost";
+import apiClient from "@/api/axiosInstance";
+import Image from "next/image";
+import Replies from "@/Components/Replies";
 
 const fetchUsers = async (userId: string | null) => {
   if (!userId) {
     throw new Error("User is not found");
   }
-  const response = await axios.get(`api/external/users/${userId}`);
+  const response = await apiClient.get(`/users/${userId}`);
 
   return response.data?.user;
 };
@@ -33,7 +36,6 @@ export default function User() {
 
   useEffect(() => {
     const storedId = localStorage.getItem("userId");
-    console.log("data", storedId);
     setUserId(storedId);
   }, []);
 
@@ -42,7 +44,6 @@ export default function User() {
     queryFn: () => fetchUsers(userId),
     enabled: !!userId,
   });
-  console.log(user);
 
   return (
     <>
@@ -69,10 +70,12 @@ export default function User() {
                 </p>
               </div>
               <div className="flex flex-col">
-                <img
-                  src={user?.profilePic || "defaultImage.jpg"}
+                <Image
+                height={80}
+                width={80}
+                  src={user?.profile ? user.profilePic : "/defaultImage.jpg"}
                   alt="profilepic"
-                  className="w-20 h-20 object-cover rounded-full"
+                  className=" object-cover rounded-full"
                 />
                 <div className="flex justify-center py-4 ">
                   <BiBarChartSquare className="text-3xl m-1" />
@@ -109,6 +112,7 @@ export default function User() {
           </div>
           <div>
             {selected === "Threads" && (
+                  <>
               <div className=" mx-auto bg-white  rounded-lg">
                 <div className="flex justify-between items-center border-b py-4 px-6 ">
                   <p className="text-gray-500 font-medium">What's new?</p>
@@ -174,17 +178,22 @@ export default function User() {
                       >
                         Add
                       </button>
+
                       <EditProfile
                         editOpen={editOpen}
                         setEditOpen={setEditOpen}
                       />
+
                     </div>
                   </div>
                 </div>
               </div>
+             <PostDetails /> 
+              </>
             )}
-            <PostDetails/>
           </div>
+           {selected === "Repost" && <Repost />}
+           {selected === "Replies" && <Replies/>}
         </div>
       </div>
     </>

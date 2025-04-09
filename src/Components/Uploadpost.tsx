@@ -1,48 +1,63 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import React, { useState } from "react";
-import { GoSmiley } from "react-icons/go";
+import { GoLocation, GoSmiley } from "react-icons/go";
 import { ImSpinner3 } from "react-icons/im";
 import { IoMdImages } from "react-icons/io";
 import { IoPersonCircleOutline } from "react-icons/io5";
 import Modal from "react-modal";
+import { useToast } from "@/app/hooks/useToast";
+import apiClient from "@/api/axiosInstance";
+import { UserType } from "@/redux/slices/AuthSlice";
+import { CgMoreO } from "react-icons/cg";
+import { FaChevronRight } from "react-icons/fa";
 
 Modal.setAppElement(document.body);
+interface UploadProps {
+  plusIsOpen: boolean;
+  setPlusIsOpen: (value: boolean) => void;
+  user: UserType | null;
+}
 
-const UploadpostModal = ({ plusIsOpen, setPlusIsOpen, user }) => {
+const UploadpostModal: React.FC<UploadProps> = ({
+  plusIsOpen,
+  setPlusIsOpen,
+  user,
+}) => {
+  const LoggedUserId = localStorage.getItem("userId") || "";
+
   const [postData, setPostData] = useState({
     userId: "",
     text: "",
-    image: null as File | null,
+    image: null as File | null | string,
   });
   const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
 
-  const [image, setImage] = useState(null);
-
+  const [image, setImage] = useState<string | null>(null);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      const imageUrl = URL.createObjectURL(file);
       setPostData((prev) => ({
         ...prev,
         image: file,
       }));
 
-      const imageUrl = URL.createObjectURL(file);
       setImage(imageUrl);
     }
   };
 
-  
-
   const postMutatioin = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await axios.post("api/external/posts", formData);
+      const response = await apiClient.post("/posts", formData,{headers:{
+        "Content-Type":"multipart/form-data"
+      }});
       return response.data;
     },
-    onSuccess: (data) => {
-      console.log(data);
-      queryClient.invalidateQueries({ queryKey: ["allPost"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      showSuccess("Posted");
       setPlusIsOpen(false);
       setPostData({
         userId: "",
@@ -50,14 +65,15 @@ const UploadpostModal = ({ plusIsOpen, setPlusIsOpen, user }) => {
         image: null as File | null,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      showError(error?.response.data.error || "error uploading file");
       console.log(error);
     },
   });
 
   const handlePost = () => {
     const Post = new FormData();
-    Post.append("userId", user?._id);
+    Post.append("userId", LoggedUserId);
     Post.append("text", postData.text);
 
     if (postData.image) {
@@ -76,19 +92,24 @@ const UploadpostModal = ({ plusIsOpen, setPlusIsOpen, user }) => {
         className="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-4 md:mx-auto p-6 outline-none"
         overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
       >
-        <div className="flex  items-center border-b ">
+        <div className="flex justify-between items-center border-b  ">
           <button
             onClick={() => setPlusIsOpen(false)}
             className="px-2 py-2 m-3 text-black "
           >
             Cancel
           </button>
-          <h2 className=" text-base font-semibold  ">New Thread</h2>
+          <h2 className="flex items-center text-base font-semibold  ">New Thread</h2>
+          <div>
+          <CgMoreO className="text-2xl"/>
+          </div>
         </div>
 
         <div className="flex">
           <IoPersonCircleOutline className="text-6xl px-1 text-gray-400" />
-          <p className="m-2 text-sm font-semibold">{user?.username}</p>
+          <p className="flex m-2 text-base font-semibold">{user?.username} 
+            <div className="flex text-gray-500 font-normal ml-2">  Add a topic </div>
+          </p>
         </div>
 
         <input
@@ -119,6 +140,9 @@ const UploadpostModal = ({ plusIsOpen, setPlusIsOpen, user }) => {
             <button>
               <GoSmiley className="text-2xl m-2 text-gray-400" />
             </button>
+            <button>
+            <GoLocation className="text-2xl m-2 text-gray-400"/>
+            </button>
           </div>
         </div>
         {image && (
@@ -141,6 +165,7 @@ const UploadpostModal = ({ plusIsOpen, setPlusIsOpen, user }) => {
           <button
             className="px-4 py-2 text-gray-400 border rounded-lg"
             onClick={handlePost}
+            disabled={postMutatioin.isPending}
           >
             Post
           </button>

@@ -1,5 +1,5 @@
 "use client";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function ToastProvider() {
@@ -13,7 +13,7 @@ export default function ToastProvider() {
       draggable
       theme="dark"
       icon={false} 
-      toastClassName="bg-black text-white px-4 py-2 rounded-xl shadow-lg text-xs flex justify-center items-center w-[200px] mx-auto"
+      toastClassName="bg-black text-white px-4 py-2 rounded-xl shadow-lg text-xs font-semibold flex justify-center items-center w-[150px] mx-auto"
       
     />
   );

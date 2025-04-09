@@ -5,13 +5,13 @@ import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import { MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/redux/slices/AuthSlice";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/app/hooks/useToast";
 import Link from "next/link";
 import { ImSpinner3 } from "react-icons/im";
+import apiClient from "@/api/axiosInstance";
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -27,8 +27,8 @@ export default function Login() {
   ) => {
     console.log(values);
 
-    const response = await axios.post(
-      "api/external/users/login",
+    const response = await apiClient.post(
+      "/users/login",
       values
     );
     return response.data;

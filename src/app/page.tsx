@@ -1,9 +1,6 @@
 "use client";
 
-import { useSelector } from "react-redux";
-import { FiHeart } from "react-icons/fi";
-import axios from "axios";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { FiMessageCircle } from "react-icons/fi";
 import { FiRepeat } from "react-icons/fi";
@@ -13,10 +10,13 @@ import Uploadpost from "@/Components/Uploadpost";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ImSpinner3 } from "react-icons/im";
 import { IoPersonCircle } from "react-icons/io5";
-import { FaHeart } from "react-icons/fa";
 import Link from "next/link";
 import HoverCard from "@/Components/HoverCard";
-
+import LikeButton from "@/Components/LikeButton";
+import apiClient from "@/api/axiosInstance";
+import { useSelector } from "react-redux";
+import Modal from "react-modal";
+import { useRouter } from "next/navigation";
 interface Post {
   _id: string;
   text: string;
@@ -32,60 +32,59 @@ interface Post {
 }
 
 export default function Home() {
+  const timeoutRef = useRef(null);
+  const userId = localStorage.getItem("userId");
   const { user } = useSelector((state) => state.auth);
-  console.log("user", user);
+  const router = useRouter()
+
+  const [hoveredUserId, setHoveredUserId] = useState(null);
 
   const [plusIsOpen, setPlusIsOpen] = useState(false);
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["allPost"],
     queryFn: async () => {
-      const res = await axios.get("api/external/posts");
+      const res = await apiClient.get("/posts");
       return res.data.posts;
     },
   });
 
-  const loggedUserId = localStorage.getItem("userId");
+  const handleMouseEnter = (postid) => {
+    setHoveredUserId(postid);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
 
-  const likeMutation = useMutation({
-    mutationKey: ["like"],
-    mutationFn: async (id) => {
-      const response = await axios.post(`api/external/posts/like/${id}`, {
-        userId: loggedUserId,
-      });
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setHoveredUserId(null);
+    }, 300);
+  };
+
+  
+  
+  const [commentModal, setCommentModal] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  
+  const handleChange = (e) => {
+    setCommentText(e.target.value);
+  };
+  
+  const commentMutation = useMutation<unknown, unknown, CommentPayload>({
+    mutationKey: ["comment"],
+    mutationFn: async ({ postId, replyData }) => {
+      const response = await apiClient.post(
+        `/posts/${postId}/reply`,
+        replyData
+      );
+      console.log("re", replyData);
       return response.data;
-    },
-    onSuccess: (data) => {
-      console.log(data);
-    },
-    onError: (err) => {
-      console.log(err);
     },
   });
 
-  const handleLike = (id) => {
-    likeMutation.mutate(id);
-  };
+  const hanldePost = (postid:string)=> {
+    router.push(`/post/${postid}`)
+  }
 
-  const unLikeMutation = useMutation({
-    mutationKey: ["unlike"],
-    mutationFn: async (id) => {
-      const response = await axios.post(`api/external/posts/unlike/${id}`, {
-        userId: loggedUserId,
-      });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      console.log(data);
-    },
-    onError: (error) => {
-      console.log(error);
-    },
-  });
-
-  const handleUnlike = (id) => {
-    unLikeMutation.mutate(id);
-  };
 
   return (
     <div className="flex flex-col min-h-screen p-3 bg-gray-50">
@@ -124,10 +123,11 @@ export default function Home() {
             ) : (
               posts?.map((item) => (
                 <div
+                  onClick={()=> hanldePost(item._id)}                                  
                   key={item._id}
-                  className="flex flex-col space-y-2 pb-6 border-b border-gray-300 last:border-b-0"
+                  className=" flex flex-col space-y-2 pb-6 border-b border-gray-300 last:border-b-0"
                 >
-                  <div className="flex items-center justify-between space-x-3 p-3">
+                  <div className=" flex items-center justify-between space-x-3 p-3">
                     <div className="flex gap-2">
                       <img
                         src={item.postById.profilePic || "defaultImage.jpg"}
@@ -137,7 +137,10 @@ export default function Home() {
                       <div className="flex items-center space-x-2">
                         <div className="font-medium">
                           <Link
+                            onMouseEnter={() => handleMouseEnter(item._id)}
+                            onMouseLeave={handleMouseLeave}
                             href={`@${item.postById.username}/${item.postById._id}`}
+                            className="hover:underline"
                           >
                             {item.postById.name}
                           </Link>
@@ -157,12 +160,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <HoverCard userId={item.postById._id}>
-                    {item.postById.username}
-                  </HoverCard>
-
+                  {hoveredUserId === item._id && (
+                    <HoverCard userId={item.postById._id} />
+                  )}
                   {item.image && (
-                    <div className="flex justify-center">
+                    <div
+                    onClick={(e)=> e.stopPropagation()}
+                    className="flex justify-center">
                       <img
                         src={item.image}
                         alt="image"
@@ -171,22 +175,16 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="relative flex ml-6 sm:ml-14 gap-2 sm:gap-4">
-                    <button
-                      onClick={() => handleLike(item._id)}
+                  <div 
+                                      onClick={(e)=> e.stopPropagation()}
+
+                  className="relative flex ml-6 sm:ml-14 gap-2 sm:gap-4">
+                    <LikeButton userId={userId} item={item} />
+
+                    <div
+                      onClick={() => setCommentModal(true)}
                       className="p-2 text-lg sm:text-xl text-gray-400 hover:bg-gray-100 rounded-full group relative"
                     >
-                      {item.likes.includes(user?._id) ? (
-                        <FaHeart className="text-red-500" />
-                      ) : (
-                        <FiHeart />
-                      )}
-                      <span className="absolute top-10 left-1/2 transform -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                        Like
-                      </span>
-                    </button>
-
-                    <div className="p-2 text-lg sm:text-xl text-gray-400 hover:bg-gray-100 rounded-full group relative">
                       <FiMessageCircle />
                       <span className="absolute top-10 left-1/2 transform -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                         Comment
@@ -207,6 +205,7 @@ export default function Home() {
                       </span>
                     </div>
                   </div>
+                  
                 </div>
               ))
             )}
